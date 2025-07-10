@@ -14,13 +14,201 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      deposits: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_method: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          referral_code: string
+          referred_by_code: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          referral_code: string
+          referred_by_code?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          referral_code?: string
+          referred_by_code?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_earnings: {
+        Row: {
+          amount: number
+          created_at: string
+          deposit_id: string | null
+          from_user_id: string
+          id: string
+          level: number
+          percentage: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          deposit_id?: string | null
+          from_user_id: string
+          id?: string
+          level: number
+          percentage: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deposit_id?: string | null
+          from_user_id?: string
+          id?: string
+          level?: number
+          percentage?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_earnings_deposit_id_fkey"
+            columns: ["deposit_id"]
+            isOneToOne: false
+            referencedRelation: "deposits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          created_at: string
+          earnings: number | null
+          id: string
+          level: number | null
+          referred_id: string
+          referrer_id: string
+        }
+        Insert: {
+          created_at?: string
+          earnings?: number | null
+          id?: string
+          level?: number | null
+          referred_id: string
+          referrer_id: string
+        }
+        Update: {
+          created_at?: string
+          earnings?: number | null
+          id?: string
+          level?: number | null
+          referred_id?: string
+          referrer_id?: string
+        }
+        Relationships: []
+      }
+      reinvestments: {
+        Row: {
+          bonus_amount: number
+          bonus_percentage: number | null
+          created_at: string
+          id: string
+          maturity_date: string
+          original_amount: number
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          bonus_amount: number
+          bonus_percentage?: number | null
+          created_at?: string
+          id?: string
+          maturity_date: string
+          original_amount: number
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          bonus_amount?: number
+          bonus_percentage?: number | null
+          created_at?: string
+          id?: string
+          maturity_date?: string
+          original_amount?: number
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
