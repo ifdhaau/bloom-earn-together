@@ -5,8 +5,8 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<h1>✅ Home is working</h1>} />
         <Route path="/reinvest" element={<Reinvest />} />
-        <Route path="/" element={<h1>✅ Home Works</h1>} />
       </Routes>
     </Router>
   );
