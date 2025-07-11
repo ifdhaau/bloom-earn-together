@@ -1,7 +1,13 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Reinvest from "./pages/reinvest";
+
 export default function App() {
   return (
-    <div style={{ padding: "2rem" }}>
-      <h1>✅ App is working</h1>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/reinvest" element={<Reinvest />} />
+        <Route path="/" element={<h1>✅ Home Works</h1>} />
+      </Routes>
+    </Router>
   );
 }
