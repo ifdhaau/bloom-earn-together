@@ -72,6 +72,7 @@ export type Database = {
           role: string | null
           updated_at: string
           user_id: string
+          wallet_balance: number
         }
         Insert: {
           created_at?: string
@@ -82,6 +83,7 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id: string
+          wallet_balance?: number
         }
         Update: {
           created_at?: string
@@ -92,6 +94,7 @@ export type Database = {
           role?: string | null
           updated_at?: string
           user_id?: string
+          wallet_balance?: number
         }
         Relationships: []
       }
@@ -196,6 +199,33 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          transaction_type?: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -209,9 +239,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      update_wallet_balance: {
+        Args: {
+          p_user_id: string
+          p_amount: number
+          p_transaction_type: Database["public"]["Enums"]["transaction_type"]
+          p_description?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      transaction_type:
+        | "deposit"
+        | "withdrawal"
+        | "reinvestment"
+        | "referral_earning"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -338,6 +381,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      transaction_type: [
+        "deposit",
+        "withdrawal",
+        "reinvestment",
+        "referral_earning",
+      ],
+    },
   },
 } as const

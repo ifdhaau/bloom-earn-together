@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -11,7 +11,8 @@ import {
   CheckCircle,
   Copy,
   Share2,
-  Shield
+  Shield,
+  Wallet
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,21 +20,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { FinanceCard } from "@/components/FinanceCard";
+import { DepositModal } from "@/components/DepositModal";
 import { useProfile } from "@/hooks/useProfile";
 import { useDeposits } from "@/hooks/useDeposits";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useReinvestments } from "@/hooks/useReinvestments";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { profile, loading: profileLoading } = useProfile();
+  const { user } = useAuth();
+  const { profile, loading: profileLoading, refetchProfile } = useProfile();
   const { deposits, loading: depositsLoading } = useDeposits();
   const { referralStats, loading: referralsLoading } = useReferrals();
   const { reinvestments, loading: reinvestmentsLoading, createReinvestment } = useReinvestments();
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
 
   // Calculate totals from real data
+  const walletBalance = profile?.wallet_balance || 0;
   const totalDeposited = deposits
     .filter(d => d.status === 'approved')
     .reduce((sum, d) => sum + Number(d.amount), 0);
@@ -41,7 +48,7 @@ export function Dashboard() {
   const totalReinvested = reinvestments
     .reduce((sum, r) => sum + Number(r.original_amount), 0);
 
-  const totalBalance = totalDeposited + totalReinvested + referralStats.total_earnings;
+  const totalBalance = walletBalance + totalReinvested + referralStats.total_earnings;
 
   // Calculate reinvestment progress
   const activeReinvestments = reinvestments.filter(r => r.status === 'active');
@@ -51,10 +58,10 @@ export function Dashboard() {
 
   const stats = [
     {
-      title: "Total Balance",
-      value: `$${totalBalance.toFixed(2)}`,
-      change: totalBalance > 0 ? "+12.5%" : "0%",
-      icon: DollarSign,
+      title: "Wallet Balance",
+      value: `$${walletBalance.toFixed(2)}`,
+      change: walletBalance > 0 ? "+12.5%" : "0%",
+      icon: Wallet,
       trend: "up"
     },
     {
@@ -97,22 +104,56 @@ export function Dashboard() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
   const handleReinvest = async () => {
-    if (totalBalance < 100) {
+    if (walletBalance < 50) {
       toast({
         title: "Insufficient Balance",
-        description: "You need at least $100 to reinvest.",
+        description: "You need at least $50 in your wallet to reinvest.",
         variant: "destructive",
       });
       return;
     }
 
-    const amount = Math.min(totalBalance * 0.5, 1000); // Reinvest up to 50% or $1000
-    const result = await createReinvestment(amount);
-    
-    if (result) {
+    if (!user) return;
+
+    const reinvestAmount = walletBalance;
+    const bonusAmount = reinvestAmount * 0.1; // 10% bonus
+
+    try {
+      // Deduct from wallet
+      const { error: walletError } = await supabase.rpc('update_wallet_balance', {
+        p_user_id: user.id,
+        p_amount: -reinvestAmount,
+        p_transaction_type: 'reinvestment',
+        p_description: `Reinvested $${reinvestAmount} with 10% bonus`
+      });
+
+      if (walletError) throw walletError;
+
+      // Create reinvestment record
+      await createReinvestment(reinvestAmount);
+
+      // Add bonus back to wallet
+      const { error: bonusError } = await supabase.rpc('update_wallet_balance', {
+        p_user_id: user.id,
+        p_amount: bonusAmount,
+        p_transaction_type: 'deposit',
+        p_description: `Reinvestment bonus (10% of $${reinvestAmount})`
+      });
+
+      if (bonusError) throw bonusError;
+
+      refetchProfile();
+
       toast({
-        title: "Reinvestment Successful",
-        description: `You've reinvested $${amount.toFixed(2)} with 10% bonus.`,
+        title: "Reinvestment Successful!",
+        description: `You've reinvested $${reinvestAmount.toFixed(2)} and earned a $${bonusAmount.toFixed(2)} bonus!`,
+      });
+    } catch (error) {
+      console.error('Reinvestment error:', error);
+      toast({
+        title: "Reinvestment Failed",
+        description: "There was an error processing your reinvestment.",
+        variant: "destructive",
       });
     }
   };
@@ -181,25 +222,26 @@ export function Dashboard() {
                   variant="default" 
                   size="lg" 
                   className="flex-col h-auto py-4"
-                  onClick={() => navigate('/deposit')}
+                  onClick={() => setDepositModalOpen(true)}
                 >
                   <Plus className="w-6 h-6 mb-2" />
-                  <span>Deposit</span>
+                  <span>Deposit Funds</span>
                 </Button>
                 <Button variant="outline" size="lg" className="flex-col h-auto py-4">
                   <Download className="w-6 h-6 mb-2" />
                   <span>Withdraw</span>
                 </Button>
-                <Button 
-                  variant="success" 
-                  size="lg" 
-                  className="flex-col h-auto py-4"
-                  onClick={handleReinvest}
-                  disabled={totalBalance < 100}
-                >
-                  <RefreshCw className="w-6 h-6 mb-2" />
-                  <span>Reinvest</span>
-                </Button>
+                {walletBalance >= 50 && (
+                  <Button 
+                    variant="success" 
+                    size="lg" 
+                    className="flex-col h-auto py-4"
+                    onClick={handleReinvest}
+                  >
+                    <RefreshCw className="w-6 h-6 mb-2" />
+                    <span>Reinvest</span>
+                  </Button>
+                )}
                 <Button 
                   variant="ghost" 
                   size="lg" 
@@ -378,6 +420,13 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Deposit Modal */}
+      <DepositModal 
+        open={depositModalOpen}
+        onOpenChange={setDepositModalOpen}
+        onSuccess={refetchProfile}
+      />
     </div>
   );
 }

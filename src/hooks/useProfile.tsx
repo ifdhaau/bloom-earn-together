@@ -9,6 +9,7 @@ interface Profile {
   referral_code: string;
   referred_by_code: string | null;
   role: string;
+  wallet_balance: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,5 +44,21 @@ export function useProfile() {
     fetchProfile();
   }, [user]);
 
-  return { profile, loading };
+  const refetchProfile = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching profile:', error);
+    } else {
+      setProfile(data);
+    }
+  };
+
+  return { profile, loading, refetchProfile };
 }
