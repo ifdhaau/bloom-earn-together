@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React from "react";
 import { 
   DollarSign, 
   TrendingUp, 
@@ -8,64 +8,142 @@ import {
   Download,
   Calendar,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Copy,
+  Share2,
+  Shield
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { FinanceCard } from "@/components/FinanceCard";
+import { useProfile } from "@/hooks/useProfile";
+import { useDeposits } from "@/hooks/useDeposits";
+import { useReferrals } from "@/hooks/useReferrals";
+import { useReinvestments } from "@/hooks/useReinvestments";
+import { useToast } from "@/hooks/use-toast";
 
 export function Dashboard() {
-  const [balance, setBalance] = useState(2847.32);
-  const [totalEarnings, setTotalEarnings] = useState(847.32);
-  const [referralEarnings, setReferralEarnings] = useState(287.50);
-  const [reinvestmentBonus, setReinvestmentBonus] = useState(159.82);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { profile, loading: profileLoading } = useProfile();
+  const { deposits, loading: depositsLoading } = useDeposits();
+  const { referralStats, loading: referralsLoading } = useReferrals();
+  const { reinvestments, loading: reinvestmentsLoading, createReinvestment } = useReinvestments();
+
+  // Calculate totals from real data
+  const totalDeposited = deposits
+    .filter(d => d.status === 'approved')
+    .reduce((sum, d) => sum + Number(d.amount), 0);
+
+  const totalReinvested = reinvestments
+    .reduce((sum, r) => sum + Number(r.original_amount), 0);
+
+  const totalBalance = totalDeposited + totalReinvested + referralStats.total_earnings;
+
+  // Calculate reinvestment progress
+  const activeReinvestments = reinvestments.filter(r => r.status === 'active');
+  const reinvestmentProgress = activeReinvestments.length > 0 ? 
+    Math.min((Date.now() - new Date(activeReinvestments[0].created_at).getTime()) / 
+    (new Date(activeReinvestments[0].maturity_date).getTime() - new Date(activeReinvestments[0].created_at).getTime()) * 100, 100) : 0;
 
   const stats = [
     {
       title: "Total Balance",
-      value: `$${balance.toFixed(2)}`,
-      change: "+12.5%",
+      value: `$${totalBalance.toFixed(2)}`,
+      change: totalBalance > 0 ? "+12.5%" : "0%",
       icon: DollarSign,
       trend: "up"
     },
     {
-      title: "Monthly Earnings",
-      value: `$${totalEarnings.toFixed(2)}`,
+      title: "Total Deposited",
+      value: `$${totalDeposited.toFixed(2)}`,
       change: "+8.2%",
       icon: TrendingUp,
       trend: "up"
     },
     {
       title: "Referral Income",
-      value: `$${referralEarnings.toFixed(2)}`,
+      value: `$${referralStats.total_earnings.toFixed(2)}`,
       change: "+15.3%",
       icon: Users,
       trend: "up"
     },
     {
       title: "Reinvestment Bonus",
-      value: `$${reinvestmentBonus.toFixed(2)}`,
+      value: `$${reinvestments.reduce((sum, r) => sum + Number(r.bonus_amount), 0).toFixed(2)}`,
       change: "+22.1%",
       icon: RefreshCw,
       trend: "up"
     }
   ];
 
-  const recentTransactions = [
-    { type: "deposit", amount: 500, date: "2024-01-15", status: "completed" },
-    { type: "referral", amount: 75, date: "2024-01-14", status: "completed" },
-    { type: "reinvestment", amount: 200, date: "2024-01-13", status: "completed" },
-    { type: "withdrawal", amount: 150, date: "2024-01-12", status: "pending" }
-  ];
+  // Combine all transactions from different sources
+  const allTransactions = [
+    ...deposits.map(d => ({
+      type: "deposit",
+      amount: Number(d.amount),
+      date: new Date(d.created_at).toLocaleDateString(),
+      status: d.status === 'approved' ? 'completed' : d.status
+    })),
+    ...reinvestments.map(r => ({
+      type: "reinvestment", 
+      amount: Number(r.original_amount),
+      date: new Date(r.created_at).toLocaleDateString(),
+      status: "completed"
+    }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+  const handleReinvest = async () => {
+    if (totalBalance < 100) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You need at least $100 to reinvest.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const amount = Math.min(totalBalance * 0.5, 1000); // Reinvest up to 50% or $1000
+    const result = await createReinvestment(amount);
+    
+    if (result) {
+      toast({
+        title: "Reinvestment Successful",
+        description: `You've reinvested $${amount.toFixed(2)} with 10% bonus.`,
+      });
+    }
+  };
+
+  const copyReferralCode = () => {
+    if (profile?.referral_code) {
+      navigator.clipboard.writeText(profile.referral_code);
+      toast({
+        title: "Copied!",
+        description: "Referral code copied to clipboard.",
+      });
+    }
+  };
+
+  if (profileLoading || depositsLoading || referralsLoading || reinvestmentsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-gradient-primary text-white p-6">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold mb-2">Welcome back!</h1>
+          <h1 className="text-3xl font-bold mb-2">Welcome back, {profile?.display_name || 'User'}!</h1>
           <p className="text-primary-foreground/80">Here's your earnings overview</p>
         </div>
       </div>
@@ -99,7 +177,12 @@ export function Dashboard() {
             <FinanceCard className="p-6">
               <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Button variant="default" size="lg" className="flex-col h-auto py-4">
+                <Button 
+                  variant="default" 
+                  size="lg" 
+                  className="flex-col h-auto py-4"
+                  onClick={() => navigate('/deposit')}
+                >
                   <Plus className="w-6 h-6 mb-2" />
                   <span>Deposit</span>
                 </Button>
@@ -107,11 +190,22 @@ export function Dashboard() {
                   <Download className="w-6 h-6 mb-2" />
                   <span>Withdraw</span>
                 </Button>
-                <Button variant="success" size="lg" className="flex-col h-auto py-4">
+                <Button 
+                  variant="success" 
+                  size="lg" 
+                  className="flex-col h-auto py-4"
+                  onClick={handleReinvest}
+                  disabled={totalBalance < 100}
+                >
                   <RefreshCw className="w-6 h-6 mb-2" />
                   <span>Reinvest</span>
                 </Button>
-                <Button variant="ghost" size="lg" className="flex-col h-auto py-4">
+                <Button 
+                  variant="ghost" 
+                  size="lg" 
+                  className="flex-col h-auto py-4"
+                  onClick={copyReferralCode}
+                >
                   <Users className="w-6 h-6 mb-2" />
                   <span>Refer</span>
                 </Button>
@@ -127,10 +221,10 @@ export function Dashboard() {
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>Progress to next tier</span>
-                    <span>$2,847 / $5,000</span>
+                    <span>Reinvestment Progress</span>
+                    <span>{reinvestmentProgress.toFixed(1)}% Complete</span>
                   </div>
-                  <Progress value={57} className="h-2" />
+                  <Progress value={reinvestmentProgress} className="h-2" />
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -149,7 +243,7 @@ export function Dashboard() {
             <FinanceCard className="p-6">
               <h3 className="text-xl font-semibold mb-4">Recent Activity</h3>
               <div className="space-y-3">
-                {recentTransactions.map((transaction, index) => (
+                {allTransactions.length > 0 ? allTransactions.map((transaction, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-background rounded-full">
@@ -179,7 +273,18 @@ export function Dashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No transactions yet</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => navigate('/deposit')}
+                    >
+                      Make your first deposit
+                    </Button>
+                  </div>
+                )}
               </div>
             </FinanceCard>
           </div>
@@ -189,16 +294,50 @@ export function Dashboard() {
             {/* Referral Card */}
             <FinanceCard className="p-6">
               <h3 className="text-lg font-semibold mb-4">Your Referral Code</h3>
-              <div className="bg-muted p-4 rounded-lg mb-4">
-                <code className="text-lg font-mono">REF2024GROW</code>
+              <div className="bg-muted p-4 rounded-lg mb-4 flex items-center justify-between">
+                <code className="text-lg font-mono">{profile?.referral_code || 'Loading...'}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={copyReferralCode}
+                  className="ml-2"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                <div>
+                  <p className="text-muted-foreground">Direct Referrals</p>
+                  <p className="font-semibold">{referralStats.level_1_count}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Indirect Referrals</p>
+                  <p className="font-semibold">{referralStats.level_2_count}</p>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Share your code and earn 10% of your referral's earnings
+                Share your code and earn from referral deposits
               </p>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={copyReferralCode}>
+                <Share2 className="w-4 h-4 mr-2" />
                 Share Code
               </Button>
             </FinanceCard>
+
+            {/* Admin Panel Link for Admin Users */}
+            {profile?.role === 'admin' && (
+              <FinanceCard className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Admin Access</h3>
+                <Button 
+                  variant="default" 
+                  className="w-full"
+                  onClick={() => navigate('/admin')}
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Admin Panel
+                </Button>
+              </FinanceCard>
+            )}
 
             {/* Tier Benefits */}
             <FinanceCard className="p-6">

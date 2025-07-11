@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { 
   Users, 
   DollarSign, 
@@ -9,49 +9,100 @@ import {
   Settings,
   BarChart3,
   Shield,
-  Eye
+  Eye,
+  Check,
+  X,
+  Edit
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 import { FinanceCard } from "@/components/FinanceCard";
+import { useAdminData } from "@/hooks/useAdminData";
+import { useToast } from "@/hooks/use-toast";
 
 export function AdminPanel() {
-  const [activeUsers, setActiveUsers] = useState(1247);
-  const [totalDeposits, setTotalDeposits] = useState(342750);
-  const [platformGrowth, setPlatformGrowth] = useState(23.5);
+  const { users, deposits, stats, loading, updateDepositStatus, updatePlatformSetting } = useAdminData();
+  const { toast } = useToast();
+  const [bonusPercentage, setBonusPercentage] = useState("10");
 
   const adminStats = [
     {
-      title: "Active Users",
-      value: activeUsers.toLocaleString(),
+      title: "Total Users",
+      value: stats.total_users.toLocaleString(),
       change: "+12.3%",
       icon: Users,
       trend: "up"
     },
     {
       title: "Total Deposits",
-      value: `$${totalDeposits.toLocaleString()}`,
+      value: `$${stats.total_deposits.toLocaleString()}`,
       change: "+18.7%", 
       icon: DollarSign,
       trend: "up"
     },
     {
-      title: "Platform Growth",
-      value: `${platformGrowth}%`,
+      title: "Platform Earnings",
+      value: `$${stats.platform_earnings.toLocaleString()}`,
       change: "+5.2%",
       icon: TrendingUp,
       trend: "up"
     },
     {
-      title: "Pending Reviews",
-      value: "8",
+      title: "Pending Deposits",
+      value: stats.pending_deposits.toString(),
       change: "-2",
       icon: AlertCircle,
       trend: "down"
     }
   ];
+
+  const handleApproveDeposit = async (depositId: string) => {
+    const success = await updateDepositStatus(depositId, 'approved');
+    if (success) {
+      toast({
+        title: "Deposit Approved",
+        description: "The deposit has been approved successfully.",
+      });
+    }
+  };
+
+  const handleRejectDeposit = async (depositId: string) => {
+    const success = await updateDepositStatus(depositId, 'rejected');
+    if (success) {
+      toast({
+        title: "Deposit Rejected",
+        description: "The deposit has been rejected.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateBonus = async () => {
+    const success = await updatePlatformSetting('reinvestment_bonus_percentage', bonusPercentage);
+    if (success) {
+      toast({
+        title: "Bonus Updated",
+        description: `Reinvestment bonus set to ${bonusPercentage}%.`,
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading admin panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   const recentActivity = [
     { user: "user_1247", action: "deposit", amount: 500, time: "2 min ago" },
@@ -205,26 +256,109 @@ export function AdminPanel() {
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
+            <div className="grid lg:grid-cols-2 gap-6">
+              {/* Users Table */}
+              <FinanceCard className="p-6">
+                <CardHeader className="p-0 mb-4">
+                  <CardTitle>All Users</CardTitle>
+                  <CardDescription>Manage user accounts and view statistics</CardDescription>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.slice(0, 10).map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">
+                          {user.display_name || 'Unknown User'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </FinanceCard>
+
+              {/* Pending Deposits */}
+              <FinanceCard className="p-6">
+                <CardHeader className="p-0 mb-4">
+                  <CardTitle>Pending Deposits</CardTitle>
+                  <CardDescription>Review and approve deposit requests</CardDescription>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deposits.filter(d => d.status === 'pending').slice(0, 5).map((deposit) => (
+                      <TableRow key={deposit.id}>
+                        <TableCell className="font-medium">
+                          ${Number(deposit.amount).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{deposit.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleApproveDeposit(deposit.id)}
+                            >
+                              <Check className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRejectDeposit(deposit.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </FinanceCard>
+            </div>
+
+            {/* Platform Settings */}
             <FinanceCard className="p-6">
               <CardHeader className="p-0 mb-4">
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>
-                  Manage user accounts, verify documents, and handle support requests
-                </CardDescription>
+                <CardTitle>Platform Settings</CardTitle>
+                <CardDescription>Configure platform-wide settings</CardDescription>
               </CardHeader>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button variant="outline" className="h-20 flex-col">
-                  <Users className="w-6 h-6 mb-2" />
-                  View All Users
-                </Button>
-                <Button variant="outline" className="h-20 flex-col">
-                  <FileText className="w-6 h-6 mb-2" />
-                  Pending Verifications
-                </Button>
-                <Button variant="outline" className="h-20 flex-col">
-                  <Settings className="w-6 h-6 mb-2" />
-                  User Settings
-                </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="bonus">Reinvestment Bonus %</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="bonus"
+                      type="number"
+                      value={bonusPercentage}
+                      onChange={(e) => setBonusPercentage(e.target.value)}
+                      placeholder="10"
+                    />
+                    <Button onClick={handleUpdateBonus}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </FinanceCard>
           </TabsContent>
