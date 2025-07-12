@@ -1,63 +1,88 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState } from 'react';
+import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 
-const DepositPage = () => {
+const Deposit = () => {
+  const supabase = useSupabaseClient();
+  const user = useUser();
   const [amount, setAmount] = useState('');
-  const [network, setNetwork] = useState('');
-  const [screenshot, setScreenshot] = useState(null);
-  const [userId, setUserId] = useState('');
-  const [status, setStatus] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    };
-    fetchUser();
-  }, []);
-
-  const handleSubmit = async () => {
-    if (!userId) {
-      setStatus("⚠️ You must be logged in to deposit.");
+  const handleRecharge = async () => {
+    if (!user) {
+      alert("You're not logged in.");
       return;
     }
 
-    const { data, error } = await supabase.from('deposits').insert({
-      user_id: userId,
-      amount: parseFloat(amount),
-      payment_method: network,
-      status: 'pending'
-    });
-
-    if (error) {
-      setStatus("❌ Deposit failed.");
-    } else {
-      setStatus("✅ Deposit submitted for approval.");
+    const rechargeAmount = Number(amount);
+    if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
+      alert("Enter a valid amount");
+      return;
     }
+
+    setLoading(true);
+
+    // 1. Check if earnings row exists
+    const { data: earningsRow, error: fetchError } = await supabase
+      .from('earnings')
+      .select('total')
+      .eq('user_id', user.id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching earnings:', fetchError.message);
+      alert('Recharge failed. Try again.');
+      setLoading(false);
+      return;
+    }
+
+    if (!earningsRow) {
+      // 2. Insert if row doesn't exist
+      const { error: insertError } = await supabase
+        .from('earnings')
+        .insert({ user_id: user.id, total: rechargeAmount });
+
+      if (insertError) {
+        console.error('Error inserting earnings:', insertError.message);
+        alert('Recharge failed.');
+      } else {
+        alert('Recharge successful!');
+      }
+    } else {
+      // 3. Update total
+      const newTotal = earningsRow.total + rechargeAmount;
+
+      const { error: updateError } = await supabase
+        .from('earnings')
+        .update({ total: newTotal })
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        console.error('Error updating earnings:', updateError.message);
+        alert('Recharge failed.');
+      } else {
+        alert('Recharge successful!');
+      }
+    }
+
+    setAmount('');
+    setLoading(false);
   };
 
   return (
-    <div style={{ padding: '2rem', color: '#fff', background: '#111', minHeight: '100vh' }}>
-      <h2>📥 Deposit via Binance Network</h2>
-
-      <label>Amount (USDT):</label><br />
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} /><br /><br />
-
-      <label>Network:</label><br />
-      <select value={network} onChange={(e) => setNetwork(e.target.value)}>
-        <option value="">-- Choose --</option>
-        <option value="BEP20">BEP20</option>
-        <option value="TRC20">TRC20</option>
-        <option value="ERC20">ERC20</option>
-      </select><br /><br />
-
-      <label>Screenshot (optional):</label><br />
-      <input type="file" onChange={(e) => setScreenshot(e.target.files[0])} /><br /><br />
-
-      <button onClick={handleSubmit}>Submit</button>
-      <p>{status}</p>
+    <div style={{ padding: '2rem' }}>
+      <h2>Recharge</h2>
+      <input
+        type="number"
+        value={amount}
+        placeholder="Enter amount"
+        onChange={(e) => setAmount(e.target.value)}
+        style={{ marginRight: '1rem' }}
+      />
+      <button onClick={handleRecharge} disabled={loading}>
+        {loading ? 'Processing...' : 'Recharge'}
+      </button>
     </div>
   );
 };
 
-export default DepositPage;
+export default Deposit;
