@@ -1,83 +1,58 @@
-import React, { useState } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useState } from "react";
+import { useUser } from "@supabase/auth-helpers-react";
+import { supabase } from "../supabaseClient";
 
 const Recharge = () => {
-  const supabase = useSupabaseClient();
-  const user = useUser();
-  const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { user } = useUser();
+  const [amount, setAmount] = useState("");
+  const [message, setMessage] = useState("");
 
   const handleRecharge = async () => {
     if (!user) {
-      alert("You're not logged in.");
+      setMessage("User not logged in.");
       return;
     }
 
-    const rechargeAmount = Number(amount);
-    if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
-      alert("Enter a valid amount");
+    if (!amount || isNaN(parseFloat(amount))) {
+      setMessage("Please enter a valid amount.");
       return;
     }
 
-    setLoading(true);
+    const { data, error } = await supabase.from("recharges").insert([
+      {
+        user_id: user.id,
+        amount: parseFloat(amount),
+      },
+    ]);
 
-    const { data: earningsRow, error: fetchError } = await supabase
-      .from('earnings')
-      .select('total')
-      .eq('user_id', user.id)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      console.error('Error fetching earnings:', fetchError.message);
-      alert('Recharge failed. Try again.');
-      setLoading(false);
-      return;
-    }
-
-    if (!earningsRow) {
-      const { error: insertError } = await supabase
-        .from('earnings')
-        .insert({ user_id: user.id, total: rechargeAmount });
-
-      if (insertError) {
-        console.error('Error inserting earnings:', insertError.message);
-        alert('Recharge failed.');
-      } else {
-        alert('Recharge successful!');
-      }
+    if (error) {
+      console.error("Recharge error:", error.message);
+      setMessage("Recharge failed: " + error.message);
     } else {
-      const newTotal = earningsRow.total + rechargeAmount;
-
-      const { error: updateError } = await supabase
-        .from('earnings')
-        .update({ total: newTotal })
-        .eq('user_id', user.id);
-
-      if (updateError) {
-        console.error('Error updating earnings:', updateError.message);
-        alert('Recharge failed.');
-      } else {
-        alert('Recharge successful!');
-      }
+      setMessage("Recharge successful!");
+      setAmount(""); // clear input
     }
-
-    setAmount('');
-    setLoading(false);
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <div style={{ padding: "20px" }}>
       <h2>Recharge</h2>
       <input
         type="number"
-        value={amount}
         placeholder="Enter amount"
+        value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        style={{ marginRight: '1rem' }}
+        style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
       />
-      <button onClick={handleRecharge} disabled={loading}>
-        {loading ? 'Processing...' : 'Recharge'}
+      <br />
+      <button onClick={handleRecharge} style={{ padding: "10px 20px" }}>
+        Submit Recharge
       </button>
+      {message && (
+        <p style={{ marginTop: "15px", color: message.includes("failed") ? "red" : "green" }}>
+          {message}
+        </p>
+      )}
     </div>
   );
 };
