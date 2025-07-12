@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { useUser } from '@supabase/auth-helpers-react';
 
 const Recharge = () => {
   const user = useUser();
