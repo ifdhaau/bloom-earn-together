@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 const DepositPage = () => {
   const [amount, setAmount] = useState('');
@@ -22,14 +22,12 @@ const DepositPage = () => {
       return;
     }
 
-    const { data, error } = await supabase.from('deposits').insert([{
+    const { data, error } = await supabase.from('deposits').insert({
       user_id: userId,
-      amount,
-      network,
-      screenshot_url: null,
-      status: 'pending',
-      created_at: new Date()
-    }]);
+      amount: parseFloat(amount),
+      payment_method: network,
+      status: 'pending'
+    });
 
     if (error) {
       setStatus("❌ Deposit failed.");

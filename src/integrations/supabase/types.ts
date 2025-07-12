@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      earnings: {
+        Row: {
+          total: number | null
+          user_id: string
+        }
+        Insert: {
+          total?: number | null
+          user_id: string
+        }
+        Update: {
+          total?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      Earnings: {
+        Row: {
+          total: number
+          user_id: string
+        }
+        Insert: {
+          total: number
+          user_id?: string
+        }
+        Update: {
+          total?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           id: string
@@ -196,6 +226,33 @@ export type Database = {
           original_amount?: number
           status?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      Reinvestments: {
+        Row: {
+          amount: number | null
+          bonus: number | null
+          created_at: string | null
+          id: string
+          total: number | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          bonus?: number | null
+          created_at?: string | null
+          id?: string
+          total?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          bonus?: number | null
+          created_at?: string | null
+          id?: string
+          total?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }

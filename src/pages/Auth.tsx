@@ -47,7 +47,7 @@ export default function Auth() {
     const displayName = formData.get('displayName') as string;
     const referralCode = formData.get('referralCode') as string;
 
-    const { error } = await signUp(email, password, displayName, referralCode);
+    const { error } = await signUp(email, password);
     
     if (error) {
       toast({
