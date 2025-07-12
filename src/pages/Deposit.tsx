@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { supabase } from '../supabaseClient';
 
 const Deposit = () => {
   const supabase = useSupabaseClient();
