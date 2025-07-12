@@ -1,58 +1,65 @@
-import { useState } from "react";
-import { useUser } from "@supabase/auth-helpers-react";
-import { supabase } from "../supabaseClient";
+import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
+import { useUser } from '@supabase/auth-helpers-react';
 
 const Recharge = () => {
-  const { user } = useUser();
-  const [amount, setAmount] = useState("");
-  const [message, setMessage] = useState("");
+  const user = useUser();
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
   const handleRecharge = async () => {
     if (!user) {
-      setMessage("User not logged in.");
+      setMessage('You must be logged in to recharge.');
       return;
     }
 
-    if (!amount || isNaN(parseFloat(amount))) {
-      setMessage("Please enter a valid amount.");
+    const rechargeAmount = parseFloat(amount);
+    if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
+      setMessage('Enter a valid recharge amount.');
       return;
     }
 
-    const { data, error } = await supabase.from("recharges").insert([
-      {
-        user_id: user.id,
-        amount: parseFloat(amount),
-      },
-    ]);
+    setLoading(true);
+    setMessage('');
 
-    if (error) {
-      console.error("Recharge error:", error.message);
-      setMessage("Recharge failed: " + error.message);
-    } else {
-      setMessage("Recharge successful!");
-      setAmount(""); // clear input
+    try {
+      const { error } = await supabase.from('earnings').insert([
+        {
+          user_id: user.id,
+          type: 'recharge',
+          amount: rechargeAmount,
+        },
+      ]);
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage('Recharge successful!');
+      setAmount('');
+    } catch (error) {
+      setMessage('Failed to process recharge. Please try again.');
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Recharge</h2>
+    <div style={{ padding: '1rem' }}>
+      <h2>Recharge Wallet</h2>
       <input
         type="number"
         placeholder="Enter amount"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        style={{ padding: "10px", marginBottom: "10px", width: "100%" }}
+        style={{ marginRight: '1rem' }}
       />
-      <br />
-      <button onClick={handleRecharge} style={{ padding: "10px 20px" }}>
-        Submit Recharge
+      <button onClick={handleRecharge} disabled={loading}>
+        {loading ? 'Processing...' : 'Recharge'}
       </button>
-      {message && (
-        <p style={{ marginTop: "15px", color: message.includes("failed") ? "red" : "green" }}>
-          {message}
-        </p>
-      )}
+      {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
     </div>
   );
 };
